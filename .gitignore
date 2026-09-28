@@ -1,0 +1,24 @@
+# build
+build/
+out/
+cmake-build-*/
+*.exe
+*.obj
+*.o
+*.pdb
+
+# data (raw ITCH lives outside the repo; see PLAN.md)
+data/
+*.gz
+*.NASDAQ_ITCH50
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+.pytest_cache/
+
+# editor
+.vscode/
+.vs/
