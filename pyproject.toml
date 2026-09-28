@@ -1,0 +1,18 @@
+[project]
+name = "pylob"
+version = "0.1.0"
+description = "Reference Python ITCH reader/order book and analysis for the C++ engine"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy",
+  "pandas",
+  "matplotlib",
+  "sortedcontainers",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+testpaths = ["python/tests"]
+pythonpath = ["python"]

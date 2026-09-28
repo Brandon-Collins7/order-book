@@ -7,9 +7,10 @@ cmake-build-*/
 *.o
 *.pdb
 
-# data (raw ITCH lives outside the repo; see PLAN.md)
+# raw ITCH data lives in data/ and is never committed (see PLAN.md)
 data/
 *.gz
+!tests/fixtures/*.gz
 *.NASDAQ_ITCH50
 
 # python

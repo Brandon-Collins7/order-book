@@ -18,8 +18,11 @@ The same book logic is also written in Python. It checks the C++ engine for corr
 
 ## 2. Data
 
-- Nasdaq publishes free full-day TotalView-ITCH 5.0 files at `https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/` (e.g. `01302019.NASDAQ_ITCH50.gz`). Each is about 4–5 GB gzipped, about 10–13 GB raw, and holds hundreds of millions of messages. Browse the directory to see which dates are available.
-- **Keep the raw data out of OneDrive and out of git.** Store it somewhere like `D:\itch\` or the WSL home folder, and point to it with a `ITCH_DATA_DIR` env var.
+- Nasdaq publishes free full-day TotalView-ITCH 5.0 files at `https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/`. There are 15 days available between 2018 and 2020. Each is 3.5–5.6 GB gzipped, roughly 9–14 GB uncompressed, and holds hundreds of millions of messages.
+- **Storage:** keep only the `.gz` files, in `data/` (gitignored). The disk has limited free space. Start with one day (`01302019`) and add days when M5 starts. Tools find the folder through a `ITCH_DATA_DIR` env var, which defaults to `data/`.
+- **Read the `.gz` files directly:** the C++ and Python tools decompress while reading (zlib in C++, `gzip` in Python), so an uncompressed file never needs to be written to disk.
+- **Per-symbol filter (M1):** a one-time tool writes just the chosen symbols' messages to a small binary file per day. The research backtests run on these files.
+- **Throughput benchmarks** must not include decompression time. For those, decompress one day, or the filtered file, into memory or a temporary file, and delete it afterwards.
 - Commit a small test file (a few MB, sliced from a real day) to `tests/fixtures/` so CI and unit tests can run on it.
 - Symbol universe: roughly 5–10 liquid names that trade at different prices (e.g. AAPL, MSFT, AMD, INTC, plus a few mid-caps). Use every available day for the research result, and use at least 3.
 
@@ -123,7 +126,7 @@ What to measure and write up:
 | # | Milestone | Done when | Est. |
 |---|---|---|---|
 | M0 | Setup | Toolchain installed, GitHub repo + CI green, one day downloaded, fixture sliced | ½ day |
-| M1 | Parsers | C++ + Python count every message type in a full day; the two counts match | 1 day |
+| M1 | Parsers | C++ + Python read `.gz` directly and count every message type in a full day, and the two counts match; per-symbol filter tool written | 1–2 days |
 | M2 | Book builders | Top-of-book streams from C++ and Python match; invariant tests pass | 2 days |
 | M3 | Benchmarks | Throughput, latency percentiles, and memory table for C++ (map vs. flat) and Python variants | 1 day |
 | M4 | Simulator + strategies | Queue model with unit tests on hand-built scenarios; fills exported | 3 days |

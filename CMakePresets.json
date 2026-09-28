@@ -1,0 +1,39 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}"
+    },
+    {
+      "name": "release",
+      "inherits": "base",
+      "displayName": "Release (benchmarks)",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "debug",
+      "inherits": "base",
+      "displayName": "Debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "ci",
+      "inherits": "base",
+      "displayName": "CI (portable release build)",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "LOB_NATIVE": "OFF" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "release", "configurePreset": "release" },
+    { "name": "debug", "configurePreset": "debug" },
+    { "name": "ci", "configurePreset": "ci" }
+  ],
+  "testPresets": [
+    { "name": "release", "configurePreset": "release", "output": { "outputOnFailure": true } },
+    { "name": "debug", "configurePreset": "debug", "output": { "outputOnFailure": true } },
+    { "name": "ci", "configurePreset": "ci", "output": { "outputOnFailure": true } }
+  ]
+}
