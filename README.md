@@ -2,7 +2,7 @@
 
 A C++20 engine that rebuilds Nasdaq TotalView-ITCH 5.0 order books and replays them through a market-making simulator. A reference implementation in Python checks its correctness and gives a performance comparison. See [PLAN.md](PLAN.md) for the design and milestones.
 
-> Work in progress: the file reader and test setup are done; the order book comes next (M1–M2).
+> Work in progress: reading and decoding ITCH are done and cross-checked between C++ and Python (M0–M1). The order book comes next (M2).
 
 ## Data
 
@@ -28,8 +28,17 @@ Requires CMake ≥ 3.28, Ninja, and a C++20 compiler. On Windows, run from a *De
 cmake --preset release
 cmake --build --preset release
 ctest --preset release
-./build/release/itch_stats data/01302019.NASDAQ_ITCH50.gz
 ```
+
+Tools (in `build/release/`):
+
+| Tool | What it does |
+|---|---|
+| `itch_stats <file.gz>` | Decodes every message, counts by type, and checks lengths, timestamp order and symbols |
+| `itch_dump <file.gz>` | Prints every decoded message as one CSV line (same format as `pylob.dump_line`) |
+| `itch_filter <in.gz> <out.gz> SYM...` | Writes a small file with just the chosen symbols, plus market-wide and directory messages |
+
+`ctest` includes `cross_check_decoders`, which requires the C++ and Python decoders to agree on every field of every message in the fixture.
 
 ## Python
 

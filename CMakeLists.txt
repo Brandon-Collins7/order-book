@@ -46,8 +46,11 @@ add_library(lob
 target_include_directories(lob PUBLIC cpp/include)
 target_link_libraries(lob PUBLIC lob_options PRIVATE ZLIB::ZLIB)
 
-add_executable(itch_stats cpp/apps/itch_stats.cpp)
-target_link_libraries(itch_stats PRIVATE lob)
+foreach(app itch_stats itch_dump itch_filter)
+  add_executable(${app} cpp/apps/${app}.cpp)
+  target_link_libraries(${app} PRIVATE lob)
+endforeach()
+target_link_libraries(itch_filter PRIVATE ZLIB::ZLIB)
 
 if(LOB_BUILD_TESTS)
   enable_testing()
@@ -58,10 +61,18 @@ if(LOB_BUILD_TESTS)
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
   FetchContent_MakeAvailable(googletest)
 
-  add_executable(lob_tests cpp/tests/test_gz_reader.cpp)
+  add_executable(lob_tests cpp/tests/test_gz_reader.cpp cpp/tests/test_itch.cpp)
   target_link_libraries(lob_tests PRIVATE lob ZLIB::ZLIB GTest::gtest_main)
   target_compile_definitions(lob_tests PRIVATE
     LOB_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
   include(GoogleTest)
   gtest_discover_tests(lob_tests)
+
+  # Cross-language check: the C++ and Python decoders must agree on every field of the fixture.
+  find_package(Python3 COMPONENTS Interpreter)
+  if(Python3_FOUND)
+    add_test(NAME cross_check_decoders
+      COMMAND Python3::Interpreter ${CMAKE_CURRENT_SOURCE_DIR}/scripts/cross_check_dump.py
+              $<TARGET_FILE:itch_dump> ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/sample.itch.gz)
+  endif()
 endif()

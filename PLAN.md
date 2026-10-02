@@ -135,6 +135,13 @@ What to measure and write up:
 
 **Systems bullet is ready after M3. Research bullet is ready after M5.** Stretch goals: Avellaneda–Stoikov, a latency-sensitivity study, a parser→book SPSC lock-free queue on two threads, pybind11 bindings, and the Numba variant.
 
+## Progress log
+
+- **M0 done (2026-09-28):** CMake/CI skeleton, gzip reader in C++ and Python, FLIR+IIVI fixture. Both readers agree on all 368,366,634 messages of 2019-01-30.
+- **M1 done (2026-10-02):** C++ and Python decoders for every message type the book needs; `itch_dump` cross-check agrees on every field of the fixture; the full day passes the length, timestamp-order and symbol checks; `itch_filter` written and verified against the scan counts.
+  - Note for M2: the stock directory can repeat (CFG-D's `R` message is sent twice), so handle it idempotently.
+  - Note for M3: timings on this machine swing 2x (86 s vs 154 s for the same run) while OneDrive is syncing. Benchmark with sync paused and the data already in memory.
+
 ## 8. Resume bullets (fill in after M3/M5)
 
 - Built a C++20 engine that reconstructs Nasdaq TotalView-ITCH order books, replaying **N M** messages at **X M msg/s** (p99 update **Y ns**); **Kx** faster than a reference Python implementation used as a correctness oracle
