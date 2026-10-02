@@ -142,6 +142,12 @@ What to measure and write up:
   - Note for M2: the stock directory can repeat (CFG-D's `R` message is sent twice), so handle it idempotently.
   - Note for M3: timings on this machine swing 2x (86 s vs 154 s for the same run) while OneDrive is syncing. Benchmark with sync paused and the data already in memory.
 
+- **M2 done (2026-10-02):** first-version book (`unordered_map` order store, `std::map` levels, intrusive FIFO per level) and an independent Python reference (dict + `SortedDict`, no queues).
+  - C++ and Python agree on every top-of-book change: 58,209 on the fixture, 1,600,405 for AAPL + MSFT over the full day.
+  - Full day, all 8,713 stocks: 0 unknown refs, 0 duplicate refs, 0 overfills, 0 structure problems, 0 live orders at the end of the day, 1.74M live orders at peak.
+  - Crossed/locked books in regular hours appear only for SXTC and PHUN, during LULD pauses or within ~100 µs after the reopening cross while Nasdaq publishes the cross results. Note for M4: don't quote during pauses or right after a reopening.
+  - Note for M3: the first version manages ~0.5M msg/s on the full day (736 s) but 3.8M msg/s on AAPL + MSFT. Throughput falls as the live order count grows (1.74M vs 65K), which points at cache misses from node-based containers. Printing the stream added another 40%.
+
 ## 8. Resume bullets (fill in after M3/M5)
 
 - Built a C++20 engine that reconstructs Nasdaq TotalView-ITCH order books, replaying **N M** messages at **X M msg/s** (p99 update **Y ns**); **Kx** faster than a reference Python implementation used as a correctness oracle

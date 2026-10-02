@@ -9,8 +9,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5  # for the C++-vs-Python cross-checks run by ctest
+        with:
+          python-version: "3.12"
       - name: Install build tools
-        run: sudo apt-get update && sudo apt-get install -y ninja-build zlib1g-dev
+        run: |
+          sudo apt-get update && sudo apt-get install -y ninja-build zlib1g-dev
+          pip install sortedcontainers
       - name: Configure
         run: cmake --preset ci
       - name: Build
@@ -26,6 +31,6 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install
-        run: pip install pytest
+        run: pip install pytest sortedcontainers
       - name: Test
         run: pytest -q
