@@ -135,6 +135,11 @@ What to measure and write up:
 
 **Systems bullet is ready after M3. Research bullet is ready after M5.** Stretch goals: Avellaneda–Stoikov, a latency-sensitivity study, a parser→book SPSC lock-free queue on two threads, pybind11 bindings, and the Numba variant.
 
+## Ideas for later
+
+- **Exchange rebates (maker-taker fees):** Nasdaq pays a rebate when a resting order is filled. In 2019 this was roughly $0.002–0.003/share, depending on volume tier. Taking liquidity costs about $0.003/share. Against a 1-cent spread, the rebate is a large part of a market maker's revenue. If added, it should be its own line in the M5 PnL breakdown, at a stated assumed rate, with results reported with and without it.
+- **Order-store and queue-model alternatives:** once every part has a first version, test aggregate price levels (no per-level linked lists) against the current design, and an exact queue-position model based on order-ref ordering against the assumed cancel fraction.
+
 ## Progress log
 
 - **M0 done (2026-09-28):** CMake/CI skeleton, gzip reader in C++ and Python, FLIR+IIVI fixture. Both readers agree on all 368,366,634 messages of 2019-01-30.
