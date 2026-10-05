@@ -81,7 +81,7 @@ void pin_and_prioritize(int cpu) {
 #endif
 }
 
-// Current and peak resident memory of this process, in bytes.
+// Current resident memory of this process, in bytes.
 std::uint64_t rss_now() {
 #if defined(_WIN32)
   PROCESS_MEMORY_COUNTERS pmc{};
@@ -94,17 +94,6 @@ std::uint64_t rss_now() {
     std::fclose(f);
   }
   return static_cast<std::uint64_t>(resident) * static_cast<std::uint64_t>(sysconf(_SC_PAGESIZE));
-#endif
-}
-std::uint64_t rss_peak() {
-#if defined(_WIN32)
-  PROCESS_MEMORY_COUNTERS pmc{};
-  GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof pmc);
-  return pmc.PeakWorkingSetSize;
-#else
-  rusage ru{};
-  getrusage(RUSAGE_SELF, &ru);
-  return static_cast<std::uint64_t>(ru.ru_maxrss) * 1024;
 #endif
 }
 
@@ -231,13 +220,15 @@ struct RunResult {
 };
 
 // Replays one in-memory batch of framed messages, timing every sample_every-th message alone.
+// Also samples resident memory every 2^20 messages into max_rss (a few microseconds each).
 template <class Work>
 std::uint64_t replay(const std::vector<std::uint8_t>& batch, Work& work, std::uint32_t sample_every,
-                     std::uint32_t& countdown, std::vector<std::uint64_t>& samples) {
+                     std::uint32_t& countdown, std::vector<std::uint64_t>& samples, std::uint64_t& max_rss) {
   const std::uint8_t* p = batch.data();
   const std::uint8_t* const end = p + batch.size();
   std::uint64_t n = 0;
   while (p < end) {
+    if ((n & ((1u << 20) - 1)) == 0) max_rss = std::max(max_rss, rss_now());
     const std::uint16_t len = lob::be16(p);
     if (--countdown == 0) {
       countdown = sample_every;
@@ -287,16 +278,19 @@ class Source {
 template <class Work, class... Args>
 RunResult run_once(Source& src, const Options& opt, Args&&... args) {
   RunResult r;
+  // Memory growth = highest resident memory sampled during the run minus resident memory just
+  // before it. (The process-wide peak is no use here: loading the file sets it before timing.)
   const std::uint64_t mem_before = rss_now();
+  std::uint64_t max_rss = mem_before;
   Work work(std::forward<Args>(args)...);
   std::uint32_t countdown = opt.sample_every;
   src.for_each_batch([&](const std::vector<std::uint8_t>& batch) {
     const auto t0 = Clock::now();
-    r.messages += replay(batch, work, opt.sample_every, countdown, r.samples);
+    r.messages += replay(batch, work, opt.sample_every, countdown, r.samples, max_rss);
     r.seconds += std::chrono::duration<double>(Clock::now() - t0).count();
   });
-  const std::uint64_t peak = rss_peak();
-  r.mem_bytes = peak > mem_before ? peak - mem_before : 0;
+  max_rss = std::max(max_rss, rss_now());
+  r.mem_bytes = max_rss - mem_before;
   r.checksum = work.checksum();
   if constexpr (requires { work.builder; }) {
     r.top_changes = work.changes;

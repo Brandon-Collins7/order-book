@@ -152,6 +152,13 @@ What to measure and write up:
   - Full day, all 8,713 stocks: 0 unknown refs, 0 duplicate refs, 0 overfills, 0 structure problems, 0 live orders at the end of the day, 1.74M live orders at peak.
   - Crossed/locked books in regular hours appear only for SXTC and PHUN, during LULD pauses or within ~100 µs after the reopening cross while Nasdaq publishes the cross results. Note for M4: don't quote during pauses or right after a reopening.
   - Note for M3: the first version manages ~0.5M msg/s on the full day (736 s) but 3.8M msg/s on AAPL + MSFT. Throughput falls as the live order count grows (1.74M vs 65K), which points at cache misses from node-based containers. Printing the stream added another 40%.
+  - **Correction (M3):** measured properly (pinned to a performance core, decompression excluded), the same baseline does 3.27M msg/s on the full day, not 0.5M. The 736 s run was unpinned (so it could land on an efficiency core), included decompression, and competed with OneDrive. Live-order growth is real but accounts for a 2.4x slowdown (7.9M msg/s on AAPL + MSFT), not 7x.
+- **M3 done (2026-10-05), Windows/MSVC numbers:** six fast variants (order pool x {std::unordered_map, flat open-addressing hash, direct array} x {std::map, sorted vector}) plus the C++ and Python harnesses. Every variant reproduces the baseline's top-of-book checksum, and so does the Python book. Full tables are in `results/bench/`.
+  - Full day, all stocks: baseline 3.27M msg/s (306 ns/msg, p99.9 1.43 us, +353 MB); pool/flat-hash/vector 9.41M (106 ns, p99.9 548 ns, +226 MB); pool/direct/vector 13.92M (72 ns, p99.9 582 ns, +2.5 GB), 4.3x the baseline.
+  - AAPL + MSFT: flat-hash/vector is best (60 ns/msg, 2.1x the baseline). The direct index is 5x slower there and uses 1.7-2.3 GB, because refs are numbered across the whole market, so a filtered file uses a sparse slice of a huge array. Which index wins depends on the workload.
+  - The pool alone (with std::unordered_map and std::map) is no faster than the baseline. The gains come from removing pointer chasing in the lookups: flat hash or direct index, plus vector levels (about 2x on the full day).
+  - Python reference book: 5.2 us/msg on AAPL + MSFT (86x slower than the best C++), 210 bytes per resting order vs 32 in the C++ pool. The naive dict book is 19x slower again (97 us/msg). Turning the GC off halved p99.9 on the fixture but made no difference on AAPL + MSFT.
+  - Still to do: rerun under WSL2/gcc with `perf` cache-miss counts before quoting final numbers.
 
 ## 8. Resume bullets (fill in after M3/M5)
 

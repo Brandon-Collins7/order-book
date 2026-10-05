@@ -3,6 +3,7 @@
   python scripts/run_benchmarks.py aapl_msft     # AAPL + MSFT, full day: C++ and Python
   python scripts/run_benchmarks.py full_day      # every stock, full day: C++ only
   python scripts/run_benchmarks.py fixture       # quick check on the test fixture
+  python scripts/run_benchmarks.py aapl_msft --only cpp   # rerun one language, keep the other
 
 Each variant runs in its own process, so memory measurements don't leak between variants.
 Raw results go to results/bench/<dataset>.jsonl and a Markdown table to results/bench/<dataset>.md.
@@ -66,27 +67,49 @@ def table(results):
 
 
 def main():
-    if len(sys.argv) != 2 or sys.argv[1] not in DATASETS:
+    args = sys.argv[1:]
+    only = None
+    if len(args) == 3 and args[1] == "--only" and args[2] in ("cpp", "python"):
+        only = args[2]
+        args = args[:1]
+    if len(args) != 1 or args[0] not in DATASETS:
         sys.exit(__doc__)
-    name = sys.argv[1]
+    name = args[0]
     d = DATASETS[name]
+    path = OUT / f"{name}.jsonl"
+
+    # With --only, rerun one language and keep the other's results from the previous run.
+    def is_python(r):
+        return r["variant"].startswith("python")
+
+    kept = []
+    if only and path.exists():
+        kept = [r for r in map(json.loads, path.read_text().splitlines()) if is_python(r) != (only == "python")]
+
     results = []
-    for v in d["cpp"]:
-        cmd = [EXE, d["file"], "--variant", v, "--repeat", str(d["repeat"])]
-        if d["symbols"]:
-            cmd += ["--symbols", d["symbols"]]
-        results.append(run(cmd))
-    for v, gc in d["python"]:
-        cmd = [sys.executable, "scripts/bench_python.py", d["file"], "--variant", v, "--gc", gc,
-               "--repeat", str(min(d["repeat"], 3)), "--symbols", d["symbols"]]
-        results.append(run(cmd))
-    memory = run([sys.executable, "scripts/bench_python.py", d["file"], "--memory"]) if d["python"] else None
+    if only != "python":
+        for v in d["cpp"]:
+            cmd = [EXE, d["file"], "--variant", v, "--repeat", str(d["repeat"])]
+            if d["symbols"]:
+                cmd += ["--symbols", d["symbols"]]
+            results.append(run(cmd))
+    if only != "cpp":
+        for v, gc in d["python"]:
+            cmd = [sys.executable, "scripts/bench_python.py", d["file"], "--variant", v, "--gc", gc,
+                   "--repeat", str(min(d["repeat"], 3)), "--symbols", d["symbols"]]
+            results.append(run(cmd))
+        if d["python"]:
+            results.append(run([sys.executable, "scripts/bench_python.py", d["file"], "--memory"]))
+
+    all_results = [r for r in kept if not is_python(r)] + results + [r for r in kept if is_python(r)]
+    memory = next((r for r in all_results if r["variant"] == "python order dict"), None)
+    results = [r for r in all_results if r is not memory]
 
     books = {r["checksum"] for r in results if r.get("checksum") and r["variant"] not in ("frame", "parse")
              and r.get("top_changes")}
     OUT.mkdir(parents=True, exist_ok=True)
-    with open(OUT / f"{name}.jsonl", "w") as f:
-        for r in results + ([memory] if memory else []):
+    with open(path, "w") as f:
+        for r in all_results:
             f.write(json.dumps(r) + "\n")
 
     first = results[0]
