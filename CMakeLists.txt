@@ -57,6 +57,14 @@ target_link_libraries(itch_filter PRIVATE ZLIB::ZLIB)
 add_executable(lob_bench cpp/bench/lob_bench.cpp)
 target_link_libraries(lob_bench PRIVATE lob)
 
+# Count cache behavior under valgrind's cachegrind for the timed replay only (Linux).
+option(LOB_CACHEGRIND "Build lob_bench with cachegrind start/stop markers" OFF)
+if(LOB_CACHEGRIND)
+  find_path(VALGRIND_INCLUDE_DIR valgrind/cachegrind.h REQUIRED)
+  target_include_directories(lob_bench PRIVATE ${VALGRIND_INCLUDE_DIR})
+  target_compile_definitions(lob_bench PRIVATE LOB_CACHEGRIND)
+endif()
+
 if(LOB_BUILD_TESTS)
   enable_testing()
   set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)

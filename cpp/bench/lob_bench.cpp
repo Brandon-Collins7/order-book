@@ -45,6 +45,22 @@
 #include <x86intrin.h>
 #endif
 
+// With -DLOB_CACHEGRIND (CMake option LOB_CACHEGRIND), cachegrind only counts inside the timed
+// replay, so the simulated cache misses exclude decompression and setup. Run it with
+//   valgrind --tool=cachegrind --cache-sim=yes --instr-at-start=no ./lob_bench ...
+#if defined(LOB_CACHEGRIND)
+#include <valgrind/cachegrind.h>
+#define LOB_COUNT_START CACHEGRIND_START_INSTRUMENTATION
+#define LOB_COUNT_STOP CACHEGRIND_STOP_INSTRUMENTATION
+#else
+#define LOB_COUNT_START \
+  do {              \
+  } while (0)
+#define LOB_COUNT_STOP \
+  do {             \
+  } while (0)
+#endif
+
 #include "lob/book.hpp"
 #include "lob/endian.hpp"
 #include "lob/fast_book.hpp"
@@ -286,7 +302,9 @@ RunResult run_once(Source& src, const Options& opt, Args&&... args) {
   std::uint32_t countdown = opt.sample_every;
   src.for_each_batch([&](const std::vector<std::uint8_t>& batch) {
     const auto t0 = Clock::now();
+    LOB_COUNT_START;
     r.messages += replay(batch, work, opt.sample_every, countdown, r.samples, max_rss);
+    LOB_COUNT_STOP;
     r.seconds += std::chrono::duration<double>(Clock::now() - t0).count();
   });
   max_rss = std::max(max_rss, rss_now());
