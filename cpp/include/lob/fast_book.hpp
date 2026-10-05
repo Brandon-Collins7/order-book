@@ -20,6 +20,8 @@
 #include <bit>
 #include <cstdint>
 #include <functional>
+#include <iterator>
+#include <type_traits>
 #include <map>
 #include <memory>
 #include <set>
@@ -210,6 +212,15 @@ class MapLevels {
   Level& at(Price p) { return map_.find(p)->second; }
   void erase(Price p) { map_.erase(p); }
   const Level* best() const { return map_.empty() ? nullptr : &map_.begin()->second; }
+  // k-th level from the best (0 = best), or nullptr.
+  const Level* level(std::size_t k) const {
+    if (k >= map_.size()) return nullptr;
+    return &std::next(map_.begin(), static_cast<std::ptrdiff_t>(k))->second;
+  }
+  std::uint64_t shares_at(Price p) const {
+    auto it = map_.find(p);
+    return it == map_.end() ? 0 : it->second.shares;
+  }
 
  private:
   using Better = std::conditional_t<kBid, std::greater<Price>, std::less<Price>>;
@@ -230,6 +241,12 @@ class VectorLevels {
   Level& at(Price p) { return levels_[position(p)]; }
   void erase(Price p) { levels_.erase(levels_.begin() + static_cast<std::ptrdiff_t>(position(p))); }
   const Level* best() const { return levels_.empty() ? nullptr : &levels_.back(); }
+  // k-th level from the best (0 = best), or nullptr.
+  const Level* level(std::size_t k) const { return k < levels_.size() ? &levels_[levels_.size() - 1 - k] : nullptr; }
+  std::uint64_t shares_at(Price p) const {
+    const std::size_t i = position(p);
+    return i < levels_.size() && levels_[i].price == p ? levels_[i].shares : 0;
+  }
 
  private:
   static bool worse(Price a, Price b) { return kBid ? a < b : a > b; }
@@ -292,6 +309,11 @@ class Book {
     return t;
   }
 
+  // Displayed shares at a price on one side ('B' or 'S'); 0 if there is no level there.
+  std::uint64_t shares_at(char side, Price p) const { return side == 'B' ? bids_.shares_at(p) : asks_.shares_at(p); }
+  // k-th level from the best on one side (0 = best), or nullptr.
+  const Level* level(char side, std::size_t k) const { return side == 'B' ? bids_.level(k) : asks_.level(k); }
+
  private:
   template <class Side>
   static void unlink(Side& side, OrderPool& pool, std::uint32_t idx) {
@@ -309,9 +331,19 @@ class Book {
   Levels<false> asks_;
 };
 
+// What happened to a resting order. Reported to an optional listener after the book applies it,
+// with the order's side and price resolved (ITCH executions and cancels carry only the ref).
+enum class BookEvent : std::uint8_t { kAdd, kExecute, kCancel };
+
+// The default listener: does nothing and compiles away, so the benchmarked builders pay nothing.
+struct NoListener {
+  void on_book_event(BookEvent, std::uint16_t /*locate*/, char /*side*/, Price, std::uint32_t /*shares*/,
+                     std::uint64_t /*ref*/) {}
+};
+
 // Same interface and semantics as lob::BookBuilder (except the crossed/locked checks), so the
 // two can be swapped in the benchmark and compared message by message in the tests.
-template <class Index, template <bool> class Levels>
+template <class Index, template <bool> class Levels, class Listener = NoListener>
 class BookBuilder : public itch::Handler {
  public:
   using itch::Handler::on;
@@ -331,6 +363,7 @@ class BookBuilder : public itch::Handler {
   const BookType* book(std::uint16_t locate) const { return books_[locate].get(); }
   const BookStats& stats() const { return stats_; }
   std::size_t live_orders() const { return live_; }
+  void set_listener(Listener* listener) { listener_ = listener; }
 
   void on(const itch::StockDirectory& m) {
     if (!books_[m.locate] && (all_symbols_ || wanted_.count(std::string(m.stock.view()))))
@@ -339,9 +372,9 @@ class BookBuilder : public itch::Handler {
   void on(const itch::AddOrder& m) {
     if (BookType* b = books_[m.locate].get()) add(*b, m.locate, m.ref, m.side, m.shares, m.price);
   }
-  void on(const itch::OrderExecuted& m) { take_shares(m.locate, m.ref, m.shares); }
-  void on(const itch::OrderExecutedWithPrice& m) { take_shares(m.locate, m.ref, m.shares); }
-  void on(const itch::OrderCancel& m) { take_shares(m.locate, m.ref, m.shares); }
+  void on(const itch::OrderExecuted& m) { take_shares(m.locate, m.ref, m.shares, BookEvent::kExecute); }
+  void on(const itch::OrderExecutedWithPrice& m) { take_shares(m.locate, m.ref, m.shares, BookEvent::kExecute); }
+  void on(const itch::OrderCancel& m) { take_shares(m.locate, m.ref, m.shares, BookEvent::kCancel); }
   void on(const itch::OrderDelete& m) {
     BookType* b = books_[m.locate].get();
     if (!b) return;
@@ -350,7 +383,9 @@ class BookBuilder : public itch::Handler {
       ++stats_.unknown_ref;
       return;
     }
+    const Order o = pool_[idx];
     drop(*b, m.ref, idx);
+    notify(BookEvent::kCancel, m.locate, o.side, o.price, o.shares, m.ref);
     touch(*b, m.locate);
   }
   void on(const itch::OrderReplace& m) {
@@ -361,9 +396,10 @@ class BookBuilder : public itch::Handler {
       ++stats_.unknown_ref;
       return;
     }
-    const char side = pool_[idx].side;
+    const Order o = pool_[idx];
     drop(*b, m.orig_ref, idx);
-    add(*b, m.locate, m.new_ref, side, m.shares, m.price);
+    notify(BookEvent::kCancel, m.locate, o.side, o.price, o.shares, m.orig_ref);
+    add(*b, m.locate, m.new_ref, o.side, m.shares, m.price);
     touch(*b, m.locate);
   }
 
@@ -383,10 +419,11 @@ class BookBuilder : public itch::Handler {
     o.side = side;
     b.add(pool_, idx);
     if (++live_ > stats_.max_live_orders) stats_.max_live_orders = live_;
+    notify(BookEvent::kAdd, locate, side, price, shares, ref);
     touch(b, locate);
   }
 
-  void take_shares(std::uint16_t locate, std::uint64_t ref, std::uint32_t shares) {
+  void take_shares(std::uint16_t locate, std::uint64_t ref, std::uint32_t shares, BookEvent kind) {
     BookType* b = books_[locate].get();
     if (!b) return;
     const std::uint32_t idx = index_.find(ref);
@@ -395,13 +432,23 @@ class BookBuilder : public itch::Handler {
       return;
     }
     Order& o = pool_[idx];
+    const char side = o.side;
+    const Price price = o.price;
+    const std::uint32_t taken = std::min(shares, o.shares);
     if (shares < o.shares) {
       b->reduce(o, shares);
     } else {
       if (shares > o.shares) ++stats_.overfill;
       drop(*b, ref, idx);
     }
+    notify(kind, locate, side, price, taken, ref);
     touch(*b, locate);
+  }
+
+  void notify(BookEvent kind, std::uint16_t locate, char side, Price price, std::uint32_t shares, std::uint64_t ref) {
+    if constexpr (!std::is_same_v<Listener, NoListener>) {
+      if (listener_) listener_->on_book_event(kind, locate, side, price, shares, ref);
+    }
   }
 
   void drop(BookType& b, std::uint64_t ref, std::uint32_t idx) {
@@ -425,6 +472,7 @@ class BookBuilder : public itch::Handler {
   BookType* touched_ = nullptr;
   std::uint16_t touched_locate_ = 0;
   BookStats stats_;
+  Listener* listener_ = nullptr;
 };
 
 }  // namespace lob::fast

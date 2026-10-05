@@ -167,6 +167,12 @@ What to measure and write up:
   - The pool alone (with std::unordered_map and std::map) is no faster than the baseline. The gains come from removing pointer chasing in the lookups: flat hash or direct index, plus vector levels (about 2x on the full day).
   - Python reference book: 5.2 us/msg on AAPL + MSFT (86x slower than the best C++), 210 bytes per resting order vs 32 in the C++ pool. The naive dict book is 19x slower again (97 us/msg). Turning the GC off halved p99.9 on the fixture but made no difference on AAPL + MSFT.
   - Still to do: rerun under WSL2/gcc with `perf` cache-miss counts before quoting final numbers.
+- **M4 done (2026-10-05):** replay simulator (`lob/sim.hpp`) on the flat-hash/vector book, plus a configurable market maker (`lob/strategy.hpp`) and the `backtest` app, which writes per-fill CSVs with markouts at 100 ms / 1 s / 5 s / 30 s.
+  - Model: no market impact; 10 us latency on new orders and cancels (orders can fill while a cancel is in flight); post-only rejects; the queue model as planned (pessimistic or proportional cancels, ahead clamped to the displayed level); trade-through and crossing-add fills; quoting only after the opening cross, while trading, 1 s after a reopening, and until 15:59. The fast book got an optional event listener (compiles to nothing when unused) so the simulator sees executions and cancels with price and side resolved.
+  - Found: ITCH 5.0 reports every hidden ('P') trade with side 'B' (22,262/22,262 for AAPL + MSFT), so hidden trades are used only by price.
+  - Tests: 14 hand-built scenarios (queue fills, latency, both cancel models, clamping, trade-through, hidden trades, crossing adds, post-only, fill during cancel, halt + cooldown, markouts, skew clamping, limits). 49 C++ tests total.
+  - Sanity grid on AAPL + MSFT (`results/m4/sanity_grid.md`): baseline captures +0.70 c/share of spread but loses 0.93 c/share to 1 s adverse selection (-$9.0K before rebates). Skew cuts max inventory 594 -> 385. The imbalance filter halves the loss by trading less, but per-share adverse selection doesn't improve at theta = 0.5, even though the signal itself is valid (P(next move down) is 0.61 when the bid side is thin vs 0.35 when it's heavy). Open question for M5.
+  - Caveats for the write-up: the position limit is soft (in-flight cancels); no-impact fills can double-count an aggressor's volume (queue fill at our level plus trade-through at the next level).
 
 ## 8. Resume bullets (fill in after M3/M5)
 

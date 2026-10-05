@@ -2,7 +2,7 @@
 
 A C++20 engine that rebuilds Nasdaq TotalView-ITCH 5.0 order books and replays them through a market-making simulator. A reference implementation in Python checks its correctness and gives a performance comparison. See [PLAN.md](PLAN.md) for the design and milestones.
 
-> Work in progress: reading, decoding and order-book reconstruction are done and cross-checked between C++ and Python (M0–M2). Benchmarks come next (M3).
+> Work in progress: the engine, benchmarks and market-making simulator are done (M0–M4). Research analysis comes next (M5).
 
 ## Results so far
 
@@ -54,6 +54,8 @@ Tools (in `build/release/`):
 | `itch_dump <file.gz>` | Prints every decoded message as one CSV line (same format as `pylob.dump_line`) |
 | `itch_filter <in.gz> <out.gz> SYM...` | Writes a small file with just the chosen symbols, plus market-wide and directory messages |
 | `build_book [--quiet] <file.gz> [SYM...]` | Rebuilds the order books and prints every top-of-book change; reports integrity checks |
+| `backtest <file.gz> --symbols A,B [options]` | Runs the market maker in the replayed market; writes every fill with its markouts (see `--help`-style usage in `cpp/apps/backtest.cpp`) |
+| `lob_bench <file.gz> --variant NAME` | Benchmarks parsing and the book variants (see `scripts/run_benchmarks.py`) |
 
 `ctest` includes two cross-language checks on the fixture: `cross_check_decoders` (every decoded field of every message) and `cross_check_books` (every top-of-book change). Run them on any file with `scripts/cross_check.py`.
 

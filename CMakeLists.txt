@@ -43,11 +43,12 @@ endif()
 
 add_library(lob
   cpp/src/gz_reader.cpp
-  cpp/src/book.cpp)
+  cpp/src/book.cpp
+  cpp/src/sim.cpp)
 target_include_directories(lob PUBLIC cpp/include)
 target_link_libraries(lob PUBLIC lob_options PRIVATE ZLIB::ZLIB)
 
-foreach(app itch_stats itch_dump itch_filter build_book)
+foreach(app itch_stats itch_dump itch_filter build_book backtest)
   add_executable(${app} cpp/apps/${app}.cpp)
   target_link_libraries(${app} PRIVATE lob)
 endforeach()
@@ -66,7 +67,7 @@ if(LOB_BUILD_TESTS)
   FetchContent_MakeAvailable(googletest)
 
   add_executable(lob_tests cpp/tests/test_gz_reader.cpp cpp/tests/test_itch.cpp cpp/tests/test_book.cpp
-  cpp/tests/test_fast_book.cpp)
+  cpp/tests/test_fast_book.cpp cpp/tests/test_sim.cpp)
   target_link_libraries(lob_tests PRIVATE lob ZLIB::ZLIB GTest::gtest_main)
   target_compile_definitions(lob_tests PRIVATE
     LOB_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")

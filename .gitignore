@@ -23,3 +23,6 @@ __pycache__/
 # editor
 .vscode/
 .vs/
+
+# backtest fill logs (regenerate with build/release/backtest)
+results/m4/*.csv
