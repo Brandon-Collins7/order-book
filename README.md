@@ -2,7 +2,7 @@
 
 A C++20 engine that rebuilds Nasdaq TotalView-ITCH 5.0 order books and replays them through a market-making simulator. A reference implementation in Python checks its correctness and gives a performance comparison. See [PLAN.md](PLAN.md) for the design and milestones.
 
-> Work in progress: the engine, benchmarks, simulator and a first round of research are done (M0–M5). Next: confirm the tick-size finding on fresh days.
+> Status: the engine, benchmarks, simulator and research (including a pre-registered confirmation on fresh days) are done (M0–M5). Final benchmark numbers on Linux/gcc are still to come.
 
 ## Results so far
 
@@ -20,18 +20,20 @@ Decoding alone runs at 118M msg/s (8.5 ns/msg). Every variant reproduces the bas
 
 Which design wins depends on the data. The direct index is fastest on the full feed, where order refs are dense, but on a two-symbol file it is 5x slower than the flat hash and uses about 2 GB, because refs are numbered across the whole market. Full tables: [results/bench/](results/bench/).
 
-### Market-making research (first round)
+### Market-making research
 
 A market maker quoting 100 shares at the best bid and ask was simulated on 8 Nasdaq stocks (AAPL MSFT AMD INTC CSCO CMCSA NVDA FB). The simulator models queue position, 10 µs latency, and post-only orders. Parameters were tuned on one day (2019-01-30) and results reported on three held-out days (2019-03-27, 07-30, 10-30). Intervals are 95% block-bootstrap intervals. Full report: [results/m5/report.md](results/m5/report.md).
 
 - **Adverse selection outweighs the spread.** Joining the touch captures +0.66 ¢/share of spread but loses 1.01 ¢/share to the mid moving against us within 1 s, a net loss of −0.34 ¢/share [−0.36, −0.32] before fees. Break-even would need a maker rebate of about 0.34 ¢/share.
 - **Inventory skew (k = 1)** cuts time-weighted inventory by 76% (291 → 70 shares RMS). It costs 0.045 ¢/share [0.026, 0.065] in fill quality.
 - **The order-book-imbalance filter (θ = 0.8)** cuts the daily loss by $3.7K [2.6K, 4.8K]. It does this by trading 28% less, not by getting better fills: per-share net markout is slightly worse (−0.018 ¢ [−0.024, −0.011]).
-- **Exploratory, not yet confirmed (the split was found after seeing the held-out days):** comparing within each stock in basis points, top-of-book imbalance strongly predicts adverse selection in **large-tick** stocks (−0.46 → −1.74 bps as our side of the book thins) and not at all in **small-tick** stocks (flat at about −0.9 bps). Pooling all stocks in cents per share hides this (Simpson's paradox). Fills that waited behind more than 2,000 displayed shares are also more adverse (−1.71 vs −1.54 bps in large-tick stocks).
+- **Tick size decides whether the order book's imbalance carries information.** This was found as a post-hoc split in the first round, then **confirmed on three fresh days with a pre-registered test** ([plan](results/m5/confirmation_plan.md), [results](results/m5/confirmation.md)). Comparing within each stock in basis points: in large-tick stocks (MSFT AMD INTC CSCO CMCSA), fills when our side of the book was thin are 1.1 bps more adverse than fills when it was thick (fresh days: −1.13 bps [−1.30, −0.99]). In small-tick stocks (AAPL NVDA FB) the gradient is about zero. Pooling all stocks in cents per share reverses the sign of the relationship (Simpson's paradox). In large-tick stocks, fills that waited behind more than 2,000 displayed shares are 0.26 bps [0.21, 0.32] more adverse than fills with 100 or fewer ahead.
 
 ![Adverse selection by imbalance, large- vs small-tick](results/m5/figures/as_by_imbalance.png)
 
-Caveats: no market impact (our orders never change the replayed market), a single venue (Nasdaq only), no fees or rebates, and 4 days of 2019 data.
+- **The imbalance filter only monetizes a small part of that signal.** On fresh days it improves large-tick fills by +0.026 bps [+0.014, +0.041] and helps large-tick more than small-tick stocks (+0.036 bps [+0.018, +0.055]). That is about 0.01 ¢/share on a $40 stock, far smaller than the 1.1 bps signal. A likely reason (not yet tested): the book usually thins in the same event that fills us, before a cancel can arrive.
+
+Caveats: no market impact (our orders never change the replayed market), a single venue (Nasdaq only), no fees or rebates, and 7 days in total (Nasdaq's full public set), of which 2 of the 3 confirmation days are quiet holiday-period days.
 
 ## Data
 
