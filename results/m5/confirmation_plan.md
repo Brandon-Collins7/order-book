@@ -2,13 +2,19 @@
 
 Written and committed on 2026-10-05, **before** any confirmation-day data was analyzed. (The files were still downloading when this was committed.) Everything below is fixed: the days, the groups, the parameters, the metrics, the tests and the decision rules. The results will be reported whatever they show.
 
+## Amendment 1 (2026-10-05, also before any confirmation-day data was analyzed)
+
+The four confirmation days above don't exist. The 2018 entries in Nasdaq's directory are checksum files (`.md5sum`) only, and the data files return 404. Only 7 full days are downloadable in total: the 4 development days plus **2019-08-30, 2019-12-30 and 2020-01-30**. Those three replace the original list, and they are the only fresh data available. Everything else stays exactly as registered: groups, θ = 0.8, metrics, hypotheses and decision rules.
+
+Known limitation: 2019-08-30 (the Friday before Labor Day) and 2019-12-30 (holiday week) are quieter than typical days, and 3 days give less statistical power than 4. If a hypothesis fails, the results will say whether the interval was simply too wide to decide (inconclusive) or pointed the other way (contradicted).
+
 ## Why
 
 In the first round (`report.md`), splitting stocks by tick size suggested that top-of-book imbalance predicts adverse selection in large-tick stocks but not small-tick ones, and that the imbalance filter only helps large-tick stocks. That split was found **after** looking at the held-out days, so it is a hypothesis. This round tests it on data that played no part in finding it.
 
 ## Data
 
-- **Confirmation days (new, never used):** 2018-05-30, 2018-10-30, 2019-05-30, 2020-01-30.
+- **Confirmation days (new, never used):** 2019-08-30, 2019-12-30, 2020-01-30 (see Amendment 1; the original list was 2018-05-30, 2018-10-30, 2019-05-30, 2020-01-30).
 - **Development days (used to choose everything below):** 2019-01-30, 2019-03-27, 2019-07-30, 2019-10-30.
 - **Symbols:** AAPL MSFT AMD INTC CSCO CMCSA NVDA FB.
 - **Tick-size groups, fixed as defined on 2019-01-30** (median quoted spread at baseline fills = 1 tick means large-tick). Stocks are not re-classified on the new days, even if their prices differ.
