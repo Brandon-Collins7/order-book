@@ -43,6 +43,11 @@ class GzItchReader {
     return count;
   }
 
+  // Replaces the contents of `out` with whole framed messages (2-byte length prefix included),
+  // stopping once it holds at least `target_bytes`. Returns false when the file is exhausted
+  // and nothing was read. Used to decompress outside a timed region.
+  bool next_batch(std::vector<std::uint8_t>& out, std::size_t target_bytes);
+
  private:
   // Moves unconsumed bytes to the front and reads more. Returns false at end of file.
   bool fill();

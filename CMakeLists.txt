@@ -53,6 +53,9 @@ foreach(app itch_stats itch_dump itch_filter build_book)
 endforeach()
 target_link_libraries(itch_filter PRIVATE ZLIB::ZLIB)
 
+add_executable(lob_bench cpp/bench/lob_bench.cpp)
+target_link_libraries(lob_bench PRIVATE lob)
+
 if(LOB_BUILD_TESTS)
   enable_testing()
   set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
@@ -62,7 +65,8 @@ if(LOB_BUILD_TESTS)
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
   FetchContent_MakeAvailable(googletest)
 
-  add_executable(lob_tests cpp/tests/test_gz_reader.cpp cpp/tests/test_itch.cpp cpp/tests/test_book.cpp)
+  add_executable(lob_tests cpp/tests/test_gz_reader.cpp cpp/tests/test_itch.cpp cpp/tests/test_book.cpp
+  cpp/tests/test_fast_book.cpp)
   target_link_libraries(lob_tests PRIVATE lob ZLIB::ZLIB GTest::gtest_main)
   target_compile_definitions(lob_tests PRIVATE
     LOB_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")

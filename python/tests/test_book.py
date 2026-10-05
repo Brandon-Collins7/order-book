@@ -88,3 +88,11 @@ def test_fixture_day_integrity():
     assert s.max_live_orders == 877
     assert len(builder.orders) == 0  # every day order is gone by the end of the day
     assert changes == 58_209
+
+
+@pytest.mark.skipif(not FIXTURE.exists(), reason="fixture not present")
+def test_naive_book_matches_reference():
+    from pylob.book import NaiveBook
+
+    naive = list(top_stream(FIXTURE, builder=BookBuilder(book_type=NaiveBook)))
+    assert naive == list(top_stream(FIXTURE))

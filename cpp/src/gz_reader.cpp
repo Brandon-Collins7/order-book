@@ -33,4 +33,22 @@ bool GzItchReader::fill() {
   return got > 0;
 }
 
+bool GzItchReader::next_batch(std::vector<std::uint8_t>& out, std::size_t target_bytes) {
+  out.clear();
+  for (;;) {
+    while (end_ - pos_ >= 2) {
+      const std::size_t len = (static_cast<std::size_t>(buf_[pos_]) << 8) | buf_[pos_ + 1];
+      if (end_ - pos_ - 2 < len) break;
+      out.insert(out.end(), buf_.begin() + static_cast<std::ptrdiff_t>(pos_),
+                 buf_.begin() + static_cast<std::ptrdiff_t>(pos_ + 2 + len));
+      pos_ += 2 + len;
+      if (out.size() >= target_bytes) return true;
+    }
+    if (!fill()) {
+      if (pos_ != end_) throw std::runtime_error("ITCH file ends partway through a message");
+      return !out.empty();
+    }
+  }
+}
+
 }  // namespace lob

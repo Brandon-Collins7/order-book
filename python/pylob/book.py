@@ -65,12 +65,48 @@ class Book:
         ask_px, ask_sz = (self.asks.peekitem(0)[0], self.asks.peekitem(0)[1][0]) if self.asks else (0, 0)
         return bid_px, bid_sz, ask_px, ask_sz
 
+    def best_prices(self):
+        """(best bid, best ask), or None if either side is empty."""
+        if not self.bids or not self.asks:
+            return None
+        return self.bids.peekitem(-1)[0], self.asks.peekitem(0)[0]
+
+
+class NaiveBook(Book):
+    """Same book with plain dicts: finding the best price scans every level (O(levels)).
+
+    Used only as the slowest point in the Python benchmark.
+    """
+
+    def __init__(self):
+        self.bids = {}
+        self.asks = {}
+
+    def top(self):
+        if self.bids:
+            bid_px = max(self.bids)
+            bid_sz = self.bids[bid_px][0]
+        else:
+            bid_px = bid_sz = 0
+        if self.asks:
+            ask_px = min(self.asks)
+            ask_sz = self.asks[ask_px][0]
+        else:
+            ask_px = ask_sz = 0
+        return bid_px, bid_sz, ask_px, ask_sz
+
+    def best_prices(self):
+        if not self.bids or not self.asks:
+            return None
+        return max(self.bids), min(self.asks)
+
 
 class BookBuilder:
     """Applies decoded ITCH messages to one Book per tracked stock."""
 
-    def __init__(self, symbols=()):
+    def __init__(self, symbols=(), book_type=Book):
         self.wanted = set(symbols)
+        self.book_type = book_type
         self.books = {}  # locate -> Book
         self.symbols = {}  # locate -> symbol
         self.orders = {}  # ref -> [locate, side, price, shares]
@@ -110,7 +146,7 @@ class BookBuilder:
         elif isinstance(m, StockDirectory):
             self.symbols[m.locate] = m.stock
             if m.locate not in self.books and (not self.wanted or m.stock in self.wanted):
-                self.books[m.locate] = Book()
+                self.books[m.locate] = self.book_type()
         elif isinstance(m, SystemEvent):
             if m.event == "Q":
                 self.regular_hours = True
@@ -146,7 +182,7 @@ class BookBuilder:
 
     def _touch(self, book, locate):
         if self.regular_hours and self.trading_state.get(locate, "T") == "T" and book.bids and book.asks:
-            best_bid, best_ask = book.bids.peekitem(-1)[0], book.asks.peekitem(0)[0]
+            best_bid, best_ask = book.best_prices()
             if best_bid > best_ask:
                 self.stats.crossed += 1
             elif best_bid == best_ask:
