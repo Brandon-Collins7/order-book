@@ -138,6 +138,14 @@ What to measure and write up:
 ## Ideas for later
 
 - **Exchange rebates (maker-taker fees):** Nasdaq pays a rebate when a resting order is filled. In 2019 this was roughly $0.002–0.003/share, depending on volume tier. Taking liquidity costs about $0.003/share. Against a 1-cent spread, the rebate is a large part of a market maker's revenue. If added, it should be its own line in the M5 PnL breakdown, at a stated assumed rate, with results reported with and without it.
+- **From the comparison with similar public repos (2026-10-05):** several projects already do an ITCH parser and book in C++ with a pool, a flat hash and a Python oracle (e.g. KareemJandali/itchbook, cjramsey/NASDAQ-ITCH-LOB, Shashank231205/ItchBook). The engine alone doesn't stand out, so:
+  - **Lead with the research result** in the README and resume: many days (Nasdaq has 15), held-out evaluation, confidence intervals, tradeoff curves.
+  - **Adverse selection by queue position:** measure how much worse fills are at the back of the queue than at the front. This uses the exact queue model below and ties to the "value of queue position" literature.
+  - **Explain engineering findings with measurements:** rerun under WSL2/gcc with `perf stat` cache-miss counts to confirm the pointer-chasing explanation for each variant.
+  - **Sanitizers in CI:** an AddressSanitizer + UndefinedBehaviorSanitizer job (cheap; competitors have it).
+  - Optional: memory-map an uncompressed file as an input mode.
+  - Low priority: a matching engine or an SPSC parser-to-book pipeline. Common in this genre, so it differentiates least.
+  - Interview prep: be ready for "how is yours different from X?"
 - **Order-store and queue-model alternatives:** once every part has a first version, test aggregate price levels (no per-level linked lists) against the current design, and an exact queue-position model based on order-ref ordering against the assumed cancel fraction.
 
 ## Progress log
