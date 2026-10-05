@@ -27,6 +27,9 @@ void Simulator::process(const std::uint8_t* msg, std::uint16_t len) {
     Symbol& s = symbols_[loc];
     const Top t = b->top();
     s.mid = t.bid_px && t.ask_px ? (static_cast<double>(t.bid_px) + t.ask_px) / 2.0 : 0.0;
+    s.spread = t.bid_px && t.ask_px && t.ask_px > t.bid_px ? t.ask_px - t.bid_px : 0;
+    const double depth = static_cast<double>(t.bid_sz + t.ask_sz);
+    s.imbalance = depth > 0 ? (static_cast<double>(t.bid_sz) - static_cast<double>(t.ask_sz)) / depth : 0.0;
     if (s.tracked) requote(loc, ts);
   }
 }
@@ -179,7 +182,9 @@ void Simulator::fill(Symbol& s, std::uint16_t locate, SimOrder& o, std::uint32_t
   f.price = o.price;
   f.shares = shares;
   f.position_after = s.position;
-  f.mid = s.mid;  // updated only after the whole message is applied, so this is the pre-fill mid
+  f.mid = s.mid;  // these are updated only after the whole message is applied: pre-fill values
+  f.imbalance = s.imbalance;
+  f.spread = s.spread;
   f.reason = reason;
   f.ahead_at_arrival = o.ahead_at_arrival;
   f.order_age_ns = now_ - o.arrives;

@@ -26,3 +26,4 @@ __pycache__/
 
 # backtest fill logs (regenerate with build/release/backtest)
 results/m4/*.csv
+results/m5/runs/

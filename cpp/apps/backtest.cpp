@@ -23,6 +23,16 @@
 
 namespace {
 
+// Escapes a string for a JSON string literal (Windows paths contain backslashes).
+std::string json_escape(const std::string& s) {
+  std::string out;
+  for (char c : s) {
+    if (c == '\\' || c == '"') out += '\\';
+    out += c;
+  }
+  return out;
+}
+
 std::vector<std::string> split(const std::string& s) {
   std::vector<std::string> out;
   std::stringstream ss(s);
@@ -38,14 +48,15 @@ void write_fills(const std::string& path, const lob::sim::Simulator& sim,
   std::vector<std::string> names(65536);
   for (const auto& r : results) names[r.locate] = r.symbol;
   std::fprintf(f, "ts_ns,symbol,side,price,shares,position,mid,reason,ahead_at_arrival,order_age_ns,"
-                  "mid_100ms,mid_1s,mid_5s,mid_30s\n");
+                  "mid_100ms,mid_1s,mid_5s,mid_30s,imbalance,spread\n");
   const double scale = lob::itch::kPriceScale;
   for (const auto& x : sim.fills()) {
-    std::fprintf(f, "%llu,%s,%c,%.4f,%u,%lld,%.5f,%c,%llu,%llu,%.5f,%.5f,%.5f,%.5f\n",
+    std::fprintf(f, "%llu,%s,%c,%.4f,%u,%lld,%.5f,%c,%llu,%llu,%.5f,%.5f,%.5f,%.5f,%.4f,%.4f\n",
                  static_cast<unsigned long long>(x.ts), names[x.locate].c_str(), x.side, x.price / scale, x.shares,
                  static_cast<long long>(x.position_after), x.mid / scale, static_cast<char>(x.reason),
                  static_cast<unsigned long long>(x.ahead_at_arrival), static_cast<unsigned long long>(x.order_age_ns),
-                 x.mid_after[0] / scale, x.mid_after[1] / scale, x.mid_after[2] / scale, x.mid_after[3] / scale);
+                 x.mid_after[0] / scale, x.mid_after[1] / scale, x.mid_after[2] / scale, x.mid_after[3] / scale,
+                 x.imbalance, x.spread / scale);
   }
   std::fclose(f);
 }
@@ -106,7 +117,7 @@ int main(int argc, char** argv) {
 
     std::printf("{\"file\": \"%s\", \"strategy\": \"%s\", \"latency_us\": %.3f, \"cancel_model\": \"%s\", "
                 "\"messages\": %llu, \"seconds\": %.2f, \"fills\": %zu, \"symbols\": [",
-                file.c_str(), strategy.name().c_str(), static_cast<double>(cfg.latency_ns) / 1000.0,
+                json_escape(file).c_str(), strategy.name().c_str(), static_cast<double>(cfg.latency_ns) / 1000.0,
                 cfg.cancel_model == lob::sim::CancelModel::kProportional ? "proportional" : "pessimistic",
                 static_cast<unsigned long long>(messages), secs, sim.fills().size());
     for (std::size_t i = 0; i < results.size(); ++i) {

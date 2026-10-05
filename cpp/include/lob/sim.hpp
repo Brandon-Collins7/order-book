@@ -91,6 +91,8 @@ struct Fill {
   std::uint32_t shares;
   std::int64_t position_after;
   double mid;  // mid price just before the fill, $ x 10^4; 0 if one side was empty
+  double imbalance;  // top-of-book (bid - ask) / (bid + ask) shares just before the fill
+  Price spread;      // best ask - best bid just before the fill, $ x 10^4
   std::array<double, kHorizons> mid_after{};  // mid at each markout horizon
   FillReason reason;
   std::uint64_t ahead_at_arrival;  // displayed shares ahead of our order when it arrived
@@ -156,6 +158,8 @@ class Simulator {
     std::int64_t position = 0;
     std::int64_t cash = 0;  // $ x 10^4
     double mid = 0;         // $ x 10^4
+    double imbalance = 0;   // top-of-book share imbalance
+    Price spread = 0;
     char trading_state = 'T';
     bool opened = false;
     std::uint64_t reopened_at = 0;

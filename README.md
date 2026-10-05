@@ -2,7 +2,7 @@
 
 A C++20 engine that rebuilds Nasdaq TotalView-ITCH 5.0 order books and replays them through a market-making simulator. A reference implementation in Python checks its correctness and gives a performance comparison. See [PLAN.md](PLAN.md) for the design and milestones.
 
-> Work in progress: the engine, benchmarks and market-making simulator are done (M0–M4). Research analysis comes next (M5).
+> Work in progress: the engine, benchmarks, simulator and a first round of research are done (M0–M5). Next: confirm the tick-size finding on fresh days.
 
 ## Results so far
 
@@ -19,6 +19,19 @@ Preliminary numbers: Windows 11, MSVC, i9-13900HX pinned to one performance core
 Decoding alone runs at 118M msg/s (8.5 ns/msg). Every variant reproduces the baseline's top-of-book stream exactly (checked by checksum), and so does the independent Python implementation, which runs at 0.19M msg/s on AAPL + MSFT.
 
 Which design wins depends on the data. The direct index is fastest on the full feed, where order refs are dense, but on a two-symbol file it is 5x slower than the flat hash and uses about 2 GB, because refs are numbered across the whole market. Full tables: [results/bench/](results/bench/).
+
+### Market-making research (first round)
+
+A market maker quoting 100 shares at the best bid and ask was simulated on 8 Nasdaq stocks (AAPL MSFT AMD INTC CSCO CMCSA NVDA FB). The simulator models queue position, 10 µs latency, and post-only orders. Parameters were tuned on one day (2019-01-30) and results reported on three held-out days (2019-03-27, 07-30, 10-30). Intervals are 95% block-bootstrap intervals. Full report: [results/m5/report.md](results/m5/report.md).
+
+- **Adverse selection outweighs the spread.** Joining the touch captures +0.66 ¢/share of spread but loses 1.01 ¢/share to the mid moving against us within 1 s, a net loss of −0.34 ¢/share [−0.36, −0.32] before fees. Break-even would need a maker rebate of about 0.34 ¢/share.
+- **Inventory skew (k = 1)** cuts time-weighted inventory by 76% (291 → 70 shares RMS). It costs 0.045 ¢/share [0.026, 0.065] in fill quality.
+- **The order-book-imbalance filter (θ = 0.8)** cuts the daily loss by $3.7K [2.6K, 4.8K]. It does this by trading 28% less, not by getting better fills: per-share net markout is slightly worse (−0.018 ¢ [−0.024, −0.011]).
+- **Exploratory, not yet confirmed (the split was found after seeing the held-out days):** comparing within each stock in basis points, top-of-book imbalance strongly predicts adverse selection in **large-tick** stocks (−0.46 → −1.74 bps as our side of the book thins) and not at all in **small-tick** stocks (flat at about −0.9 bps). Pooling all stocks in cents per share hides this (Simpson's paradox). Fills that waited behind more than 2,000 displayed shares are also more adverse (−1.71 vs −1.54 bps in large-tick stocks).
+
+![Adverse selection by imbalance, large- vs small-tick](results/m5/figures/as_by_imbalance.png)
+
+Caveats: no market impact (our orders never change the replayed market), a single venue (Nasdaq only), no fees or rebates, and 4 days of 2019 data.
 
 ## Data
 
