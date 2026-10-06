@@ -162,6 +162,9 @@ TEST(FixtureDay, BooksStayConsistent) {
   EXPECT_EQ(s.crossed, 0u);
   EXPECT_EQ(s.locked, 0u);
   EXPECT_GT(s.max_live_orders, 500u);  // 877 at peak for FLIR + IIVI
-  for (int loc = 0; loc < 65536; ++loc)
-    if (const Book* b = builder.book(static_cast<std::uint16_t>(loc))) EXPECT_EQ(b->validate(), 0u) << loc;
+  for (int loc = 0; loc < 65536; ++loc) {
+    if (const Book* b = builder.book(static_cast<std::uint16_t>(loc))) {
+      EXPECT_EQ(b->validate(), 0u) << loc;
+    }
+  }
 }
