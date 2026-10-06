@@ -30,6 +30,14 @@ A 100-share market maker was simulated on 8 Nasdaq stocks, with queue position, 
 
 Full report: [results/m5/report.md](results/m5/report.md) · confirmation: [results/m5/confirmation.md](results/m5/confirmation.md). Caveats: no market impact, Nasdaq only, no fees or rebates, 7 days of data (Nasdaq's full public set).
 
+## Roadmap
+
+- [ ] Measure whether adverse fills and book thinning happen in the same event
+- [ ] Exact queue-position model using order-ID ordering
+- [ ] Maker-taker fees and rebates in the PnL
+- [ ] UDP multicast feed handler (MoldUDP64) with gap recovery and wire-to-book latency
+- [ ] Learned short-horizon signal for quote placement
+
 ## Build and run
 
 Requires CMake ≥ 3.28, Ninja and a C++20 compiler (MSVC or gcc). Data: free daily files from [Nasdaq](https://emi.nasdaq.com/ITCH/Nasdaq%20ITCH/) go in `data/`. Tests use a small committed fixture.
