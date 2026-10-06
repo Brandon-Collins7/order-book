@@ -6,7 +6,7 @@ A C++20 engine that rebuilds Nasdaq TotalView-ITCH 5.0 order books and replays t
 
 ## Results so far
 
-Preliminary numbers: Windows 11, MSVC, i9-13900HX pinned to one performance core, data decompressed into memory before timing. Final numbers will come from Linux/gcc.
+Measured on Windows 11 with MSVC, on an i9-13900HX pinned to one performance core, with the data decompressed into memory before timing. A gcc build under WSL2 is shown further down as a cross-check.
 
 **Full trading day, all 8,713 securities (2019-01-30, 368M messages, 1.74M live orders at peak):**
 
@@ -19,6 +19,10 @@ Preliminary numbers: Windows 11, MSVC, i9-13900HX pinned to one performance core
 Decoding alone runs at 118M msg/s (8.5 ns/msg). Every variant reproduces the baseline's top-of-book stream exactly (checked by checksum), and so does the independent Python implementation, which runs at 0.19M msg/s on AAPL + MSFT.
 
 Which design wins depends on the data. The direct index is fastest on the full feed, where order refs are dense, but on a two-symbol file it is 5x slower than the flat hash and uses about 2 GB, because refs are numbered across the whole market. Full tables: [results/bench/](results/bench/).
+
+**gcc cross-check (WSL2, gcc 16.2):** every variant produces the same checksums as the MSVC build. On AAPL + MSFT, gcc is faster across the board, most of all for the baseline (79 vs 127 ns/msg, since libstdc++'s `std::map`/`std::unordered_map` are quicker), so the best variant's advantage there shrinks to 1.5x (54 ns/msg). On the full day, WSL2 is *slower* for the fast variants (flat-hash/vector 135 ns, direct/vector 139 ns with a 6.6 us p99.9). WSL2 is a virtual machine: first-touch memory is costlier, and the host can move the pinned vCPU onto an efficiency core. These are a compiler cross-check, not bare-metal Linux numbers. Tables: [results/bench/wsl2_gcc/](results/bench/wsl2_gcc/).
+
+**Why the variants differ (valgrind cachegrind, simulated cache, AAPL + MSFT):** the flat hash runs 27% fewer instructions per message than `std::unordered_map` (563 → 414). Misses to RAM are the same for every normal variant (about 0.5 per message, which is just reading the input), because a two-stock book fits in cache. The direct index's collapse on filtered data is measured: 32.5 last-level misses per message, 65x the others. Full-day cache behavior is not measured (cachegrind is too slow for 368M messages). Details: [cachegrind.md](results/bench/wsl2_gcc/cachegrind.md).
 
 ### Market-making research
 
